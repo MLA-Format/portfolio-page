@@ -103,41 +103,40 @@ const Icon = ({ src }: { src: string | null }) => (
   <R2Image src={src} className="mr-[0.5ch] inline-block size-4 object-contain align-text-bottom" />
 )
 
-const LINK = 'text-pine underline decoration-muted underline-offset-4 hover:decoration-pine'
-
-/** A contact's value, linked when it has a link. */
-function ContactLink({ contact }: { contact: Contact }) {
-  const withText = (
-    <>
-      <Icon src={contact.icon} />
-      {contact.value}
-    </>
-  )
-  if (!contact.link) return withText
-
+/** A bordered button-style link, so it reads as clickable. Opens in a new tab with a ↗, or with `download` saves the file with a ↓. */
+function LinkButton({ href, icon = null, title, download, children }: { href: string; icon?: string | null; title?: string; download?: string; children: ReactNode }) {
+  const external = download === undefined
   return (
-    <a href={contact.link} target="_blank" rel="noreferrer" title={contact.value} className={LINK}>
-      {withText}
+    <a
+      href={href}
+      title={title}
+      download={download}
+      target={external ? '_blank' : undefined}
+      rel={external ? 'noreferrer' : undefined}
+      className="inline-flex max-w-full items-center gap-[0.5ch] rounded border border-highlight px-[1ch] text-pine transition-colors hover:border-pine hover:bg-overlay focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pine"
+    >
+      <R2Image src={icon} className="size-4 shrink-0 object-contain" />
+      {children}
+      <span aria-hidden>{external ? '↗' : '↓'}</span>
     </a>
   )
 }
 
-/** A contact as a bordered button (icon, name and an outbound arrow) so it reads as clickable. */
-function ContactButton({ contact }: { contact: Contact }) {
-  if (!contact.link) return <ContactLink contact={contact} />
+/** A contact as a link button labelled `label` (its value by default), or its icon and value as plain text when it has no link. */
+function ContactLink({ contact, label = contact.value }: { contact: Contact; label?: string }) {
+  if (!contact.link) {
+    return (
+      <>
+        <Icon src={contact.icon} />
+        {contact.value}
+      </>
+    )
+  }
 
   return (
-    <a
-      href={contact.link}
-      target="_blank"
-      rel="noreferrer"
-      title={contact.value}
-      className="inline-flex items-center gap-[0.5ch] rounded border border-highlight px-[1ch] text-pine transition-colors hover:border-pine hover:bg-overlay focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pine"
-    >
-      <R2Image src={contact.icon} className="size-4 object-contain" />
-      {contact.name}
-      <span aria-hidden>↗</span>
-    </a>
+    <LinkButton href={contact.link} icon={contact.icon} title={contact.value}>
+      {label}
+    </LinkButton>
   )
 }
 
@@ -195,18 +194,21 @@ const CURL_HEADER = `  % Total    % Received % Xferd  Average Speed   Time    Ti
 
 /** Real download stats: the resume is fetched in full, so size, speed and time are measured. */
 function Resume({ state }: { state: State<number> }) {
-  const fileName = PROFILE.resume.split('/').pop()
-  const cmd = `curl -O .../${fileName}`
+  const fileName = PROFILE.resume.slice(PROFILE.resume.lastIndexOf('/') + 1)
+  const path = `.../${fileName}`
   return (
     <Section
       cmd={
-        state.status === 'error' ? (
-          cmd
-        ) : (
-          <a href={r2Url(PROFILE.resume)} download={fileName} className={LINK}>
-            {cmd}
-          </a>
-        )
+        <>
+          curl -O{' '}
+          {state.status === 'error' ? (
+            path
+          ) : (
+            <LinkButton href={r2Url(PROFILE.resume)} download={fileName}>
+              {path}
+            </LinkButton>
+          )}
+        </>
       }
       state={state}
     >
@@ -283,7 +285,7 @@ function ProjectFiles({ projects }: { projects: Project[] }) {
               <p className="my-1 flex flex-wrap items-center gap-x-[1ch] gap-y-1">
                 <span className="font-bold text-pine">Links:</span>
                 {project.contacts.map((contact) => (
-                  <ContactButton key={contact.id} contact={contact} />
+                  <ContactLink key={contact.id} contact={contact} label={contact.name} />
                 ))}
               </p>
             )}
