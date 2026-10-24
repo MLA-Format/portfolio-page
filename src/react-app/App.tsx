@@ -103,27 +103,30 @@ const Icon = ({ src }: { src: string | null }) => (
   <R2Image src={src} className="mr-[0.5ch] inline-block size-4 object-contain align-text-bottom" />
 )
 
-/** A bordered button-style link, so it reads as clickable. Opens in a new tab with a ↗, or with `download` saves the file with a ↓. */
-function LinkButton({ href, icon = null, title, download, children }: { href: string; icon?: string | null; title?: string; download?: string; children: ReactNode }) {
-  const external = download === undefined
+/**
+ * A bordered button-style link that opens in a new tab, so it reads as clickable.
+ * With `fullWidth` it fills its container (e.g. a table cell), so stacked buttons share the widest one's width.
+ */
+function LinkButton({ href, icon = null, title, fullWidth = false, children }: { href: string; icon?: string | null; title?: string; fullWidth?: boolean; children: ReactNode }) {
   return (
     <a
       href={href}
       title={title}
-      download={download}
-      target={external ? '_blank' : undefined}
-      rel={external ? 'noreferrer' : undefined}
-      className="inline-flex max-w-full items-center gap-[0.5ch] rounded border border-highlight px-[1ch] text-pine transition-colors hover:border-pine hover:bg-overlay focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pine"
+      target="_blank"
+      rel="noreferrer"
+      className={`${fullWidth ? 'flex w-full' : 'inline-flex max-w-full'} items-center gap-[0.5ch] rounded border border-highlight px-[1ch] text-pine transition-colors hover:border-pine hover:bg-overlay focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pine`}
     >
       <R2Image src={icon} className="size-4 shrink-0 object-contain" />
       {children}
-      <span aria-hidden>{external ? '↗' : '↓'}</span>
+      <span aria-hidden className="ml-auto pl-[0.5ch]">
+        ↗
+      </span>
     </a>
   )
 }
 
 /** A contact as a link button labelled `label` (its value by default), or its icon and value as plain text when it has no link. */
-function ContactLink({ contact, label = contact.value }: { contact: Contact; label?: string }) {
+function ContactLink({ contact, label = contact.value, fullWidth = false }: { contact: Contact; label?: string; fullWidth?: boolean }) {
   if (!contact.link) {
     return (
       <>
@@ -134,7 +137,7 @@ function ContactLink({ contact, label = contact.value }: { contact: Contact; lab
   }
 
   return (
-    <LinkButton href={contact.link} icon={contact.icon} title={contact.value}>
+    <LinkButton href={contact.link} icon={contact.icon} title={contact.value} fullWidth={fullWidth}>
       {label}
     </LinkButton>
   )
@@ -195,19 +198,13 @@ const CURL_HEADER = `  % Total    % Received % Xferd  Average Speed   Time    Ti
 /** Real download stats: the resume is fetched in full, so size, speed and time are measured. */
 function Resume({ state }: { state: State<number> }) {
   const fileName = PROFILE.resume.slice(PROFILE.resume.lastIndexOf('/') + 1)
-  const path = `.../${fileName}`
+  const path = `./${fileName}`
   return (
     <Section
       cmd={
         <>
           curl -O{' '}
-          {state.status === 'error' ? (
-            path
-          ) : (
-            <LinkButton href={r2Url(PROFILE.resume)} download={fileName}>
-              {path}
-            </LinkButton>
-          )}
+          {state.status === 'error' ? path : <LinkButton href={r2Url(PROFILE.resume)}>{path}</LinkButton>}
         </>
       }
       state={state}
@@ -352,7 +349,7 @@ function ContactsTable({ contacts }: { contacts: Contact[] }) {
           <tr key={`${contact.name}-${i}`}>
             <td className={`${CELL} text-foam`}>LISTEN</td>
             <td className={`${CELL} wrap-anywhere`}>
-              <ContactLink contact={contact} />
+              <ContactLink contact={contact} fullWidth />
             </td>
             <td className="align-top">{contact.name}</td>
           </tr>
