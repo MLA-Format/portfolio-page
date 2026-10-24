@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react'
-import { api, r2Url, type Education, type Experience, type Project, type Skill } from './api'
+import { api, download, r2Url, type Contact, type Education, type Experience, type Project, type Skill } from './api'
 import { PROFILE } from './profile'
 
 const PROMPT_USER = 'user@mlacae'
@@ -24,6 +24,31 @@ function commitHash(id: number) {
     hash = Math.imul(hash ^ char.charCodeAt(0), 0x01000193)
   }
   return (hash >>> 0).toString(16).padStart(8, '0').slice(0, 7)
+}
+
+/** A size the way curl's progress meter prints it: plain bytes below 100000, then k, then M. */
+function curlSize(bytes: number) {
+  const k = 1024
+  if (bytes < 100_000) return String(Math.floor(bytes))
+  if (bytes < 10_000 * k) return `${Math.floor(bytes / k)}k`
+  if (bytes < 100 * k * k) return `${(bytes / k / k).toFixed(1)}M`
+  return `${Math.floor(bytes / k / k)}M`
+}
+
+/** Seconds as H:MM:SS; curl prints "--:--:--" for anything under a second. */
+function curlTime(seconds: number) {
+  if (!seconds) return '--:--:--'
+  const mm = String(Math.floor(seconds / 60) % 60).padStart(2, '0')
+  const ss = String(seconds % 60).padStart(2, '0')
+  return `${Math.floor(seconds / 3600)}:${mm}:${ss}`
+}
+
+/** The last progress-meter line curl prints for a finished download, with its column widths. */
+function curlProgress(bytes: number, ms: number) {
+  const size = curlSize(bytes).padStart(5)
+  const speed = curlSize(ms > 0 ? (bytes * 1000) / ms : bytes).padStart(5)
+  const time = curlTime(Math.floor(ms / 1000)).padStart(8)
+  return `100 ${size}  100 ${size}    0     0  ${speed}      0 ${time} ${time} --:--:-- ${speed}`
 }
 
 // ---------- data loading ----------
@@ -58,16 +83,19 @@ function useApi<T>(fetcher: (signal: AbortSignal) => Promise<T>): State<T> {
   return state
 }
 
+/** Downloads the whole resume so the curl output can show its real size. Module-level, so it is a stable fetcher. */
+const fetchResume = (signal: AbortSignal) => download(r2Url(PROFILE.resume), signal)
+
 // ---------- building blocks ----------
 
 function Cursor() {
   return <span role="status" aria-label="Loading" className="inline-block h-[1.1em] w-[0.6em] animate-blink bg-fg align-text-bottom motion-reduce:animate-none" />
 }
 
-/** Hidden when the key is null or the image fails to load. */
-function R2Image({ src, className, alt = '' }: { src: string | null; className: string; alt?: string }) {
+/** Renders `fallback` (nothing by default) when the key is null or the image fails to load. */
+function R2Image({ src, className, alt = '', fallback = null }: { src: string | null; className: string; alt?: string; fallback?: ReactNode }) {
   const [failed, setFailed] = useState(false)
-  if (!src || failed) return null
+  if (!src || failed) return fallback
   return <img src={r2Url(src)} alt={alt} className={className} loading="lazy" onError={() => setFailed(true)} />
 }
 
@@ -75,8 +103,29 @@ const Icon = ({ src }: { src: string | null }) => (
   <R2Image src={src} className="mr-[0.5ch] inline-block size-4 object-contain align-text-bottom" />
 )
 
-/** Wide output scrolls inside its section, never the page. */
-const Scroll = ({ children }: { children: ReactNode }) => <div className="overflow-x-auto">{children}</div>
+/**
+ * A contact's value, linked when it has a link. With `iconOnly`, the icon alone is the link
+ * and the value is only shown if there is no icon or it fails to load.
+ */
+function ContactLink({ contact, iconOnly = false }: { contact: Contact; iconOnly?: boolean }) {
+  const withText = (
+    <>
+      <Icon src={contact.icon} />
+      {contact.value}
+    </>
+  )
+  if (!contact.link) return withText
+
+  return (
+    <a href={contact.link} target="_blank" rel="noreferrer" title={contact.value} className="text-pine hover:underline">
+      {iconOnly ? (
+        <R2Image src={contact.icon} alt={contact.name} className="inline-block size-5 object-contain align-middle" fallback={contact.value} />
+      ) : (
+        withText
+      )}
+    </a>
+  )
+}
 
 /** A prompt line followed by its output. */
 function Command({ cmd, children }: { cmd: ReactNode; children?: ReactNode }) {
@@ -90,13 +139,13 @@ function Command({ cmd, children }: { cmd: ReactNode; children?: ReactNode }) {
   )
 }
 
-/** A command whose output comes from an API route. */
-function Section<T>({ cmd, state, children }: { cmd: string; state: State<T>; children: (data: T) => ReactNode }) {
+/** A command whose output comes from a request. */
+function Section<T>({ cmd, state, children }: { cmd: ReactNode; state: State<T>; children: (data: T, ms: number) => ReactNode }) {
   return (
     <Command cmd={cmd}>
       {state.status === 'loading' && <Cursor />}
       {state.status === 'error' && <p className="text-love">{state.error}</p>}
-      {state.status === 'ok' && children(state.data)}
+      {state.status === 'ok' && children(state.data, state.ms)}
     </Command>
   )
 }
@@ -127,59 +176,61 @@ function Neofetch() {
   )
 }
 
-// Decorative curl progress table; the numbers are not measured.
-const CURL_PROGRESS = `  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
-                                 Dload  Upload   Total   Spent    Left  Speed
-100  128k  100  128k    0     0   512k      0 --:--:-- --:--:-- --:--:--  514k`
+const CURL_HEADER = `  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed`
 
-function Resume() {
+/** Real download stats: the resume is fetched in full, so size, speed and time are measured. */
+function Resume({ state }: { state: State<number> }) {
   const fileName = PROFILE.resume.split('/').pop()
+  const cmd = `curl -O .../${fileName}`
   return (
-    <Command
+    <Section
       cmd={
-        <a href={r2Url(PROFILE.resume)} download={fileName} className="underline decoration-muted underline-offset-4 hover:text-pine">
-          curl -O .../{fileName}
-        </a>
+        state.status === 'error' ? (
+          cmd
+        ) : (
+          <a href={r2Url(PROFILE.resume)} download={fileName} className="underline decoration-muted underline-offset-4 hover:text-pine">
+            {cmd}
+          </a>
+        )
       }
+      state={state}
     >
-      <Scroll>
-        <pre className="w-max text-subtle">{CURL_PROGRESS}</pre>
-      </Scroll>
-    </Command>
+      {(bytes, ms) => <pre className="whitespace-pre-wrap text-subtle">{`${CURL_HEADER}\n${curlProgress(bytes, ms)}`}</pre>}
+    </Section>
   )
 }
+
+/** One line of `tree` output; long names wrap under the name, not under the branch lines. */
+const TreeLine = ({ prefix, children }: { prefix: string; children: ReactNode }) => (
+  <p className="flex">
+    <span className="shrink-0 whitespace-pre text-subtle">{prefix}</span>
+    <span className="min-w-0">{children}</span>
+  </p>
+)
 
 function SkillsTree({ skills }: { skills: Skill[] }) {
   const files = skills.reduce((sum, skill) => sum + skill.children.length, 0)
   return (
     <>
-      <Scroll>
-        <div className="w-max whitespace-pre">
-          <p className="font-bold text-pine">skills/</p>
-          {skills.map((parent, i) => {
-            const lastParent = i === skills.length - 1
-            return (
-              <Fragment key={parent.id}>
-                <p>
-                  <span className="text-subtle">{lastParent ? '└── ' : '├── '}</span>
-                  <Icon src={parent.icon} />
-                  <span className="font-bold text-pine">{parent.name}/</span>
-                </p>
-                {parent.children.map((child, j) => (
-                  <p key={child.id}>
-                    <span className="text-subtle">
-                      {lastParent ? '    ' : '│   '}
-                      {j === parent.children.length - 1 ? '└── ' : '├── '}
-                    </span>
-                    <Icon src={child.icon} />
-                    {child.name}
-                  </p>
-                ))}
-              </Fragment>
-            )
-          })}
-        </div>
-      </Scroll>
+      <p className="font-bold text-pine">skills/</p>
+      {skills.map((parent, i) => {
+        const lastParent = i === skills.length - 1
+        return (
+          <Fragment key={parent.id}>
+            <TreeLine prefix={lastParent ? '└── ' : '├── '}>
+              <Icon src={parent.icon} />
+              <span className="font-bold text-pine">{parent.name}/</span>
+            </TreeLine>
+            {parent.children.map((child, j) => (
+              <TreeLine key={child.id} prefix={`${lastParent ? '    ' : '│   '}${j === parent.children.length - 1 ? '└── ' : '├── '}`}>
+                <Icon src={child.icon} />
+                {child.name}
+              </TreeLine>
+            ))}
+          </Fragment>
+        )
+      })}
       <p className="mt-3">
         {count(skills.length, 'directory', 'directories')}, {count(files, 'file')}
       </p>
@@ -198,7 +249,7 @@ function ProjectFiles({ projects }: { projects: Project[] }) {
           </p>
           <h2 className="font-bold text-pine"># {project.name}</h2>
           {project.description && <p>{project.description}</p>}
-          {!!project.bulleted_description?.length && (
+          {project.bulleted_description.length > 0 && (
             <ul>
               {project.bulleted_description.map((bullet, i) => (
                 <li key={i} className="pl-[2ch] -indent-[2ch]">
@@ -209,9 +260,19 @@ function ProjectFiles({ projects }: { projects: Project[] }) {
             </ul>
           )}
           <div className="mt-[1lh]">
-            {project.skills.length > 0 && (
+            {project.tech_stack.length > 0 && (
               <p>
-                <span className="font-bold text-pine">Tech Stack:</span> {project.skills.map((skill) => skill.name).join(', ')}
+                <span className="font-bold text-pine">Tech Stack:</span> {project.tech_stack.join(', ')}
+              </p>
+            )}
+            {project.contacts.length > 0 && (
+              <p>
+                <span className="font-bold text-pine">Links:</span>
+                {project.contacts.map((contact) => (
+                  <span key={contact.id} className="ml-[1ch]">
+                    <ContactLink contact={contact} iconOnly />
+                  </span>
+                ))}
               </p>
             )}
             <p className="text-subtle">
@@ -234,7 +295,7 @@ function GitLog({ jobs }: { jobs: Experience[] }) {
           <Icon src={job.icon} />
           {job.title} @ {job.name}{' '}
           <span className="text-subtle">
-            {formatDate(job.start_date)}–{formatDate(job.end_date)}
+            {formatDate(job.start_date)} - {formatDate(job.end_date)}
           </span>
         </li>
       ))}
@@ -242,29 +303,46 @@ function GitLog({ jobs }: { jobs: Experience[] }) {
   )
 }
 
-function EducationTable({ entries }: { entries: Education[] }) {
+/** `ls -l` lines. Every column before the degree has a fixed width, so plain text lines stay aligned and wrap like a terminal. */
+function EducationList({ entries }: { entries: Education[] }) {
   return (
     <>
       <p>total {entries.length}</p>
-      <Scroll>
-        <table className="whitespace-nowrap">
-          <tbody>
-            {entries.map((entry, i) => (
-              <tr key={`${entry.school}-${i}`}>
-                <td className={`${CELL} text-subtle`}>-rw-r--r--</td>
-                <td className={CELL}>1</td>
-                <td className={CELL}>{PROFILE.name}</td>
-                <td className={CELL}>{formatDate(entry.end_date)}</td>
-                <td className="align-top">
-                  <Icon src={entry.image} />
-                  {entry.degree} <span className="text-subtle">— {entry.school}</span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Scroll>
+      <ul>
+        {entries.map((entry, i) => (
+          <li key={`${entry.school}-${i}`}>
+            <span className="text-subtle">-rw-r--r--</span> 1 {PROFILE.name} {formatDate(entry.end_date)}{' '}
+            <Icon src={entry.image} />
+            {entry.degree} <span className="text-subtle">— {entry.school}</span>
+          </li>
+        ))}
+      </ul>
     </>
+  )
+}
+
+function ContactsTable({ contacts }: { contacts: Contact[] }) {
+  return (
+    <table>
+      <thead>
+        <tr className="text-left font-normal text-subtle">
+          <th className={`${CELL} font-normal`}>State</th>
+          <th className={`${CELL} font-normal`}>Address</th>
+          <th className="font-normal">Service</th>
+        </tr>
+      </thead>
+      <tbody>
+        {contacts.map((contact, i) => (
+          <tr key={`${contact.name}-${i}`}>
+            <td className={`${CELL} text-foam`}>LISTEN</td>
+            <td className={`${CELL} wrap-anywhere`}>
+              <ContactLink contact={contact} />
+            </td>
+            <td className="align-top">{contact.name}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   )
 }
 
@@ -272,13 +350,14 @@ function EducationTable({ entries }: { entries: Education[] }) {
 
 export default function App() {
   // All requests start in the same commit, so they run in parallel.
+  const resume = useApi(fetchResume)
   const skills = useApi(api.skills)
   const projects = useApi(api.projects)
   const experience = useApi(api.experience)
   const education = useApi(api.education)
   const contacts = useApi(api.contacts)
 
-  const states = [skills, projects, experience, education, contacts]
+  const states = [resume, skills, projects, experience, education, contacts]
   const settled = states.filter((s) => s.status !== 'loading')
   const booted = settled.length === states.length
 
@@ -305,7 +384,7 @@ export default function App() {
       </section>
 
       <Neofetch />
-      <Resume />
+      <Resume state={resume} />
 
       <Command cmd="cat about.txt">
         <p className="whitespace-pre-wrap">{PROFILE.about}</p>
@@ -324,40 +403,11 @@ export default function App() {
       </Section>
 
       <Section cmd="ls -l education/" state={education}>
-        {(data) => <EducationTable entries={data} />}
+        {(data) => <EducationList entries={data} />}
       </Section>
 
       <Section cmd="ss -tl" state={contacts}>
-        {(data) => (
-          <Scroll>
-            <table className="whitespace-nowrap">
-              <thead>
-                <tr className="text-left font-normal text-subtle">
-                  <th className={`${CELL} font-normal`}>State</th>
-                  <th className={`${CELL} font-normal`}>Address</th>
-                  <th className="font-normal">Service</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.map((contact, i) => (
-                  <tr key={`${contact.name}-${i}`}>
-                    <td className={`${CELL} text-foam`}>LISTEN</td>
-                    <td className={CELL}>
-                      {contact.link ? (
-                        <a href={contact.link} target="_blank" rel="noreferrer" className="text-pine hover:underline">
-                          {contact.value}
-                        </a>
-                      ) : (
-                        contact.value
-                      )}
-                    </td>
-                    <td className="align-top">{contact.name}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Scroll>
-        )}
+        {(data) => <ContactsTable contacts={data} />}
       </Section>
 
       <Command cmd="exit">
