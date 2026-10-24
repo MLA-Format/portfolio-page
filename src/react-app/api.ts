@@ -3,10 +3,10 @@
 const API_BASE = '/api'
 const R2_BASE = '/media'
 
-/** URL for an icon/image value: absolute URLs pass through, anything else is an R2 key such as "headshot.png". */
-export const r2Url = (key: string) => (/^https?:\/\//.test(key) ? key : `${R2_BASE}/${key.replace(/^\/+/, '')}`)
+/** Public URL for an R2 object key such as "headshot.png". */
+export const r2Url = (key: string) => `${R2_BASE}/${key.replace(/^\/+/, '')}`
 
-// Dates are "YYYY-MM-DD"; icon/image fields are R2 keys or absolute URLs.
+// Dates are "YYYY-MM-DD"; icon/image fields are R2 keys.
 export interface ChildSkill {
   id: number
   name: string

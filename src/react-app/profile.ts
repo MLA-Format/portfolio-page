@@ -3,7 +3,7 @@ export const PROFILE = {
   name: 'Mason',
   role: 'Data Entry Specialist',
   location: 'Florida',
-  about: 'About me goes here.', // placeholder; shown by `cat about.txt`, line breaks are kept
-  headshot: 'headshot.png' as string | null, // R2 key; null shows a placeholder circle
-  resume: 'temp.pdf'
+  about: 'This website is still in progress.', // Line breaks are kept
+  headshot: 'headshot.png' as string | null, // R2 key.
+  resume: 'resume.pdf' // R2 key.
 }

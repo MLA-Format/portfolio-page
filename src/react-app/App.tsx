@@ -292,7 +292,6 @@ function GitLog({ jobs }: { jobs: Experience[] }) {
         <li key={job.id}>
           <span className="text-gold">{commitHash(job.id)}</span>{' '}
           {job.end_date === null && <span className="font-bold text-love">(HEAD) </span>}
-          <Icon src={job.icon} />
           {job.title} @ {job.name}{' '}
           <span className="text-subtle">
             {formatDate(job.start_date)} - {formatDate(job.end_date)}
@@ -303,6 +302,9 @@ function GitLog({ jobs }: { jobs: Experience[] }) {
   )
 }
 
+// The space between columns plus this margin makes a 1.5ch gap; keeping real spaces lets lines wrap there.
+const COLUMN = 'mr-[0.5ch]'
+
 /** `ls -l` lines. Every column before the degree has a fixed width, so plain text lines stay aligned and wrap like a terminal. */
 function EducationList({ entries }: { entries: Education[] }) {
   return (
@@ -311,8 +313,8 @@ function EducationList({ entries }: { entries: Education[] }) {
       <ul>
         {entries.map((entry, i) => (
           <li key={`${entry.school}-${i}`}>
-            <span className="text-subtle">-rw-r--r--</span> 1 {PROFILE.name} {formatDate(entry.end_date)}{' '}
-            <Icon src={entry.image} />
+            <span className={`${COLUMN} text-subtle`}>-rw-r--r--</span> <span className={COLUMN}>1</span>{' '}
+            <span className={COLUMN}>{PROFILE.name}</span> <span className={COLUMN}>{formatDate(entry.end_date)}</span>{' '}
             {entry.degree} <span className="text-subtle">— {entry.school}</span>
           </li>
         ))}
@@ -363,7 +365,7 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen flex-col gap-5 px-4 py-4 sm:px-8 sm:py-6">
-      <h1 className="font-bold">Portfolio 1.0.0</h1>
+      <h1 className="font-bold">Portfolio 1.0.2</h1>
 
       <section>
         <p>
