@@ -10,6 +10,12 @@ const CELL = 'pr-[2ch] align-top'
 /** "2024-03-15" -> "03-2024" */
 const formatDate = (date: string | null) => (date ? `${date.slice(5, 7)}-${date.slice(0, 4)}` : 'present')
 
+/** "03-2024 - present", or just "03-2024" when both ends fall in the same month. */
+function formatRange(start: string, end: string | null) {
+  const [from, to] = [formatDate(start), formatDate(end)]
+  return from === to ? from : `${from} - ${to}`
+}
+
 /** "Resume App!" -> "resume-app" */
 const slug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
@@ -94,7 +100,7 @@ function useApi<T>(fetcher: (signal: AbortSignal) => Promise<T>): State<T> {
 }
 
 /** Downloads the whole resume so the curl output can show its real size. Module-level, so it is a stable fetcher. */
-const fetchResume = (signal: AbortSignal) => download(r2Url(PROFILE.resume), signal)
+const fetchResume = (signal: AbortSignal) => download(PROFILE.resume, signal)
 
 // ---------- building blocks ----------
 
@@ -214,7 +220,7 @@ function Resume({ state }: { state: State<number> }) {
       cmd={
         <>
           curl -O{' '}
-          {state.status === 'error' ? path : <LinkButton href={r2Url(PROFILE.resume)}>{path}</LinkButton>}
+          {state.status === 'error' ? path : <LinkButton href={PROFILE.resume}>{path}</LinkButton>}
         </>
       }
       state={state}
@@ -297,7 +303,7 @@ function ProjectFiles({ projects }: { projects: Project[] }) {
               </p>
             )}
             <p className="text-subtle">
-              {formatDate(project.start_date)} - {formatDate(project.end_date)}
+              {formatRange(project.start_date, project.end_date)}
             </p>
           </div>
         </article>
@@ -315,7 +321,7 @@ function GitLog({ jobs }: { jobs: Experience[] }) {
           {job.end_date === null && <span className="font-bold text-love">(HEAD) </span>}
           {job.title} @ {job.name}{' '}
           <span className="text-subtle">
-            {formatDate(job.start_date)} - {formatDate(job.end_date)}
+            {formatRange(job.start_date, job.end_date)}
           </span>
         </li>
       ))}

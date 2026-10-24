@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 const app = new Hono<{ Bindings: Env }>();
 
 // Read-only proxy to the backend worker over its service binding.
@@ -19,9 +19,7 @@ app.get("/openapi.json", async (c) => {
 	return c.json({ ...spec, servers: [{ url: "/api" }] });
 });
 
-// R2 objects by key, e.g. /media/icons/python.svg -> key "icons/python.svg".
-app.get("/media/*", async (c) => {
-	const key = c.req.path.slice("/media/".length);
+async function serveR2(c: Context<{ Bindings: Env }>, key: string) {
 	const object = key ? await c.env.bucket.get(key) : null;
 	if (!object) return c.notFound();
 
@@ -30,6 +28,12 @@ app.get("/media/*", async (c) => {
 	headers.set("etag", object.httpEtag);
 	headers.set("cache-control", "public, max-age=86400");
 	return new Response(object.body, { headers });
-});
+}
+
+// R2 objects by key, e.g. /media/icons/python.svg -> key "icons/python.svg".
+app.get("/media/*", (c) => serveR2(c, c.req.path.slice("/media/".length)));
+
+// The resume at a short, shareable URL.
+app.get("/resume.pdf", (c) => serveR2(c, "resume.pdf"));
 
 export default app;
