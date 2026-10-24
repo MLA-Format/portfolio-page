@@ -103,11 +103,10 @@ const Icon = ({ src }: { src: string | null }) => (
   <R2Image src={src} className="mr-[0.5ch] inline-block size-4 object-contain align-text-bottom" />
 )
 
-/**
- * A contact's value, linked when it has a link. With `iconOnly`, the icon alone is the link
- * and the value is only shown if there is no icon or it fails to load.
- */
-function ContactLink({ contact, iconOnly = false }: { contact: Contact; iconOnly?: boolean }) {
+const LINK = 'text-pine underline decoration-muted underline-offset-4 hover:decoration-pine'
+
+/** A contact's value, linked when it has a link. */
+function ContactLink({ contact }: { contact: Contact }) {
   const withText = (
     <>
       <Icon src={contact.icon} />
@@ -117,12 +116,27 @@ function ContactLink({ contact, iconOnly = false }: { contact: Contact; iconOnly
   if (!contact.link) return withText
 
   return (
-    <a href={contact.link} target="_blank" rel="noreferrer" title={contact.value} className="text-pine hover:underline">
-      {iconOnly ? (
-        <R2Image src={contact.icon} alt={contact.name} className="inline-block size-5 object-contain align-middle" fallback={contact.value} />
-      ) : (
-        withText
-      )}
+    <a href={contact.link} target="_blank" rel="noreferrer" title={contact.value} className={LINK}>
+      {withText}
+    </a>
+  )
+}
+
+/** A contact as a bordered button (icon, name and an outbound arrow) so it reads as clickable. */
+function ContactButton({ contact }: { contact: Contact }) {
+  if (!contact.link) return <ContactLink contact={contact} />
+
+  return (
+    <a
+      href={contact.link}
+      target="_blank"
+      rel="noreferrer"
+      title={contact.value}
+      className="inline-flex items-center gap-[0.5ch] rounded border border-highlight px-[1ch] text-pine transition-colors hover:border-pine hover:bg-overlay focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pine"
+    >
+      <R2Image src={contact.icon} className="size-4 object-contain" />
+      {contact.name}
+      <span aria-hidden>↗</span>
     </a>
   )
 }
@@ -189,7 +203,7 @@ function Resume({ state }: { state: State<number> }) {
         state.status === 'error' ? (
           cmd
         ) : (
-          <a href={r2Url(PROFILE.resume)} download={fileName} className="underline decoration-muted underline-offset-4 hover:text-pine">
+          <a href={r2Url(PROFILE.resume)} download={fileName} className={LINK}>
             {cmd}
           </a>
         )
@@ -266,12 +280,10 @@ function ProjectFiles({ projects }: { projects: Project[] }) {
               </p>
             )}
             {project.contacts.length > 0 && (
-              <p>
+              <p className="my-1 flex flex-wrap items-center gap-x-[1ch] gap-y-1">
                 <span className="font-bold text-pine">Links:</span>
                 {project.contacts.map((contact) => (
-                  <span key={contact.id} className="ml-[1ch]">
-                    <ContactLink contact={contact} iconOnly />
-                  </span>
+                  <ContactButton key={contact.id} contact={contact} />
                 ))}
               </p>
             )}
