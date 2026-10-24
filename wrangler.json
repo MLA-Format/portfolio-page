@@ -24,5 +24,19 @@
       		"binding": "bucket",
       		"bucket_name": "portfolio-bucket"
 		}
-	]
+	],
+	"previews": {
+		"services": [
+			{
+				"binding": "worker",
+				"service": "portfolio-worker"
+			}
+		],
+		"r2_buckets": [
+			{
+				"binding": "bucket",
+				"bucket_name": "portfolio-bucket"
+			}
+		]
+	}
 }
