@@ -49,10 +49,8 @@ export interface Experience {
   id: number
   name: string
   title: string
-  icon: string | null
   start_date: string
   end_date: string | null
-  bulleted_description: string[]
   priority: number | null
 }
 
@@ -61,7 +59,6 @@ export interface Education {
   degree: string
   start_date: string
   end_date: string | null
-  image: string | null
 }
 
 /** fetch() that rejects with a curl-style message, e.g. "curl: (22) The requested URL returned error: 500 – ...". */

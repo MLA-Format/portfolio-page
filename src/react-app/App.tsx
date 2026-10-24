@@ -7,10 +7,8 @@ const CELL = 'pr-[2ch] align-top'
 
 // ---------- helpers ----------
 
-const formatDate = (date: string | null) => (date ? date.slice(0, 7) : 'present')
-
-/** "2024-03-15" -> "03/2024" */
-const formatMonthYear = (date: string | null) => (date ? `${date.slice(5, 7)}/${date.slice(0, 4)}` : 'present')
+/** "2024-03-15" -> "03-2024" */
+const formatDate = (date: string | null) => (date ? `${date.slice(5, 7)}-${date.slice(0, 4)}` : 'present')
 
 /** "Resume App!" -> "resume-app" */
 const slug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
@@ -287,7 +285,7 @@ function ProjectFiles({ projects }: { projects: Project[] }) {
               </p>
             )}
             <p className="text-subtle">
-              {formatMonthYear(project.start_date)} - {formatMonthYear(project.end_date)}
+              {formatDate(project.start_date)} - {formatDate(project.end_date)}
             </p>
           </div>
         </article>
