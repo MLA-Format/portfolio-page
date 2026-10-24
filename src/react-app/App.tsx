@@ -15,6 +15,18 @@ const slug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').re
 
 const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
 
+/** "https://github.com/MLA-Format/my_code" -> "MLA-Format/my_code"; null if the link isn't a GitHub URL. */
+function githubPath(link: string | null) {
+  if (!link) return null
+  try {
+    const url = new URL(link)
+    if (url.hostname !== 'github.com' && url.hostname !== 'www.github.com') return null
+    return url.pathname.replace(/^\/+|\/+$/g, '').replace(/\.git$/, '') || null
+  } catch {
+    return null
+  }
+}
+
 /** Deterministic 7-char hex "commit hash" (FNV-1a) derived from a record id. */
 function commitHash(id: number) {
   let hash = 0x811c9dc5
@@ -280,7 +292,7 @@ function ProjectFiles({ projects }: { projects: Project[] }) {
               <p className="my-1 flex flex-wrap items-center gap-x-[1ch] gap-y-1">
                 <span className="font-bold text-pine">Links:</span>
                 {project.contacts.map((contact) => (
-                  <ContactLink key={contact.id} contact={contact} label={contact.name} />
+                  <ContactLink key={contact.id} contact={contact} label={githubPath(contact.link) ?? contact.name} />
                 ))}
               </p>
             )}
