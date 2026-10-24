@@ -1,7 +1,26 @@
 @import 'tailwindcss';
 
+/* JetBrains Mono, bundled so viewers don't need it installed — https://www.jetbrains.com/lp/mono/ */
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('./fonts/JetBrainsMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('./fonts/JetBrainsMono-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* Rosé Pine Dawn — https://rosepinetheme.com/palette */
 @theme {
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
   --color-base: #faf4ed;
   --color-overlay: #f2e9e1;
   --color-highlight: #dfdad9;

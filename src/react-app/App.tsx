@@ -7,15 +7,25 @@ const CELL = 'pr-[2ch] align-top'
 
 // ---------- helpers ----------
 
-const formatDate = (date: string | null) => (date ? date.slice(0, 7) : 'present')
-
-/** "2024-03-15" -> "03/2024" */
-const formatMonthYear = (date: string | null) => (date ? `${date.slice(5, 7)}/${date.slice(0, 4)}` : 'present')
+/** "2024-03-15" -> "03-2024" */
+const formatDate = (date: string | null) => (date ? `${date.slice(5, 7)}-${date.slice(0, 4)}` : 'present')
 
 /** "Resume App!" -> "resume-app" */
 const slug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
 const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
+
+/** "https://github.com/MLA-Format/my_code" -> "MLA-Format/my_code"; null if the link isn't a GitHub URL. */
+function githubPath(link: string | null) {
+  if (!link) return null
+  try {
+    const url = new URL(link)
+    if (url.hostname !== 'github.com' && url.hostname !== 'www.github.com') return null
+    return url.pathname.replace(/^\/+|\/+$/g, '').replace(/\.git$/, '') || null
+  } catch {
+    return null
+  }
+}
 
 /** Deterministic 7-char hex "commit hash" (FNV-1a) derived from a record id. */
 function commitHash(id: number) {
@@ -104,26 +114,42 @@ const Icon = ({ src }: { src: string | null }) => (
 )
 
 /**
- * A contact's value, linked when it has a link. With `iconOnly`, the icon alone is the link
- * and the value is only shown if there is no icon or it fails to load.
+ * A bordered button-style link that opens in a new tab, so it reads as clickable.
+ * With `fullWidth` it fills its container (e.g. a table cell), so stacked buttons share the widest one's width.
  */
-function ContactLink({ contact, iconOnly = false }: { contact: Contact; iconOnly?: boolean }) {
-  const withText = (
-    <>
-      <Icon src={contact.icon} />
-      {contact.value}
-    </>
+function LinkButton({ href, icon = null, title, fullWidth = false, children }: { href: string; icon?: string | null; title?: string; fullWidth?: boolean; children: ReactNode }) {
+  return (
+    <a
+      href={href}
+      title={title}
+      target="_blank"
+      rel="noreferrer"
+      className={`${fullWidth ? 'flex w-full' : 'inline-flex max-w-full'} items-center gap-[0.5ch] rounded border border-highlight px-[1ch] text-pine transition-colors hover:border-pine hover:bg-overlay focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pine`}
+    >
+      <R2Image src={icon} className="size-4 shrink-0 object-contain" />
+      {children}
+      <span aria-hidden className="ml-auto pl-[0.5ch]">
+        ↗
+      </span>
+    </a>
   )
-  if (!contact.link) return withText
+}
+
+/** A contact as a link button labelled `label` (its value by default), or its icon and value as plain text when it has no link. */
+function ContactLink({ contact, label = contact.value, fullWidth = false }: { contact: Contact; label?: string; fullWidth?: boolean }) {
+  if (!contact.link) {
+    return (
+      <>
+        <Icon src={contact.icon} />
+        {contact.value}
+      </>
+    )
+  }
 
   return (
-    <a href={contact.link} target="_blank" rel="noreferrer" title={contact.value} className="text-pine hover:underline">
-      {iconOnly ? (
-        <R2Image src={contact.icon} alt={contact.name} className="inline-block size-5 object-contain align-middle" fallback={contact.value} />
-      ) : (
-        withText
-      )}
-    </a>
+    <LinkButton href={contact.link} icon={contact.icon} title={contact.value} fullWidth={fullWidth}>
+      {label}
+    </LinkButton>
   )
 }
 
@@ -181,18 +207,15 @@ const CURL_HEADER = `  % Total    % Received % Xferd  Average Speed   Time    Ti
 
 /** Real download stats: the resume is fetched in full, so size, speed and time are measured. */
 function Resume({ state }: { state: State<number> }) {
-  const fileName = PROFILE.resume.split('/').pop()
-  const cmd = `curl -O .../${fileName}`
+  const fileName = PROFILE.resume.slice(PROFILE.resume.lastIndexOf('/') + 1)
+  const path = `./${fileName}`
   return (
     <Section
       cmd={
-        state.status === 'error' ? (
-          cmd
-        ) : (
-          <a href={r2Url(PROFILE.resume)} download={fileName} className="underline decoration-muted underline-offset-4 hover:text-pine">
-            {cmd}
-          </a>
-        )
+        <>
+          curl -O{' '}
+          {state.status === 'error' ? path : <LinkButton href={r2Url(PROFILE.resume)}>{path}</LinkButton>}
+        </>
       }
       state={state}
     >
@@ -266,17 +289,15 @@ function ProjectFiles({ projects }: { projects: Project[] }) {
               </p>
             )}
             {project.contacts.length > 0 && (
-              <p>
+              <p className="my-1 flex flex-wrap items-center gap-x-[1ch] gap-y-1">
                 <span className="font-bold text-pine">Links:</span>
                 {project.contacts.map((contact) => (
-                  <span key={contact.id} className="ml-[1ch]">
-                    <ContactLink contact={contact} iconOnly />
-                  </span>
+                  <ContactLink key={contact.id} contact={contact} label={githubPath(contact.link) ?? contact.name} />
                 ))}
               </p>
             )}
             <p className="text-subtle">
-              {formatMonthYear(project.start_date)} - {formatMonthYear(project.end_date)}
+              {formatDate(project.start_date)} - {formatDate(project.end_date)}
             </p>
           </div>
         </article>
@@ -292,7 +313,6 @@ function GitLog({ jobs }: { jobs: Experience[] }) {
         <li key={job.id}>
           <span className="text-gold">{commitHash(job.id)}</span>{' '}
           {job.end_date === null && <span className="font-bold text-love">(HEAD) </span>}
-          <Icon src={job.icon} />
           {job.title} @ {job.name}{' '}
           <span className="text-subtle">
             {formatDate(job.start_date)} - {formatDate(job.end_date)}
@@ -303,6 +323,9 @@ function GitLog({ jobs }: { jobs: Experience[] }) {
   )
 }
 
+// The space between columns plus this margin makes a 1.5ch gap; keeping real spaces lets lines wrap there.
+const COLUMN = 'mr-[0.5ch]'
+
 /** `ls -l` lines. Every column before the degree has a fixed width, so plain text lines stay aligned and wrap like a terminal. */
 function EducationList({ entries }: { entries: Education[] }) {
   return (
@@ -311,8 +334,8 @@ function EducationList({ entries }: { entries: Education[] }) {
       <ul>
         {entries.map((entry, i) => (
           <li key={`${entry.school}-${i}`}>
-            <span className="text-subtle">-rw-r--r--</span> 1 {PROFILE.name} {formatDate(entry.end_date)}{' '}
-            <Icon src={entry.image} />
+            <span className={`${COLUMN} text-subtle`}>-rw-r--r--</span> <span className={COLUMN}>1</span>{' '}
+            <span className={COLUMN}>{PROFILE.name}</span> <span className={COLUMN}>{formatDate(entry.end_date)}</span>{' '}
             {entry.degree} <span className="text-subtle">— {entry.school}</span>
           </li>
         ))}
@@ -336,7 +359,7 @@ function ContactsTable({ contacts }: { contacts: Contact[] }) {
           <tr key={`${contact.name}-${i}`}>
             <td className={`${CELL} text-foam`}>LISTEN</td>
             <td className={`${CELL} wrap-anywhere`}>
-              <ContactLink contact={contact} />
+              <ContactLink contact={contact} fullWidth />
             </td>
             <td className="align-top">{contact.name}</td>
           </tr>
@@ -363,7 +386,7 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen flex-col gap-5 px-4 py-4 sm:px-8 sm:py-6">
-      <h1 className="font-bold">Portfolio 1.0.0</h1>
+      <h1 className="font-bold">Portfolio 1.0.2</h1>
 
       <section>
         <p>

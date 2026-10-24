@@ -3,10 +3,10 @@
 const API_BASE = '/api'
 const R2_BASE = '/media'
 
-/** URL for an icon/image value: absolute URLs pass through, anything else is an R2 key such as "headshot.png". */
-export const r2Url = (key: string) => (/^https?:\/\//.test(key) ? key : `${R2_BASE}/${key.replace(/^\/+/, '')}`)
+/** Public URL for an R2 object key such as "headshot.png". */
+export const r2Url = (key: string) => `${R2_BASE}/${key.replace(/^\/+/, '')}`
 
-// Dates are "YYYY-MM-DD"; icon/image fields are R2 keys or absolute URLs.
+// Dates are "YYYY-MM-DD"; icon/image fields are R2 keys.
 export interface ChildSkill {
   id: number
   name: string
@@ -49,10 +49,8 @@ export interface Experience {
   id: number
   name: string
   title: string
-  icon: string | null
   start_date: string
   end_date: string | null
-  bulleted_description: string[]
   priority: number | null
 }
 
@@ -61,7 +59,6 @@ export interface Education {
   degree: string
   start_date: string
   end_date: string | null
-  image: string | null
 }
 
 /** fetch() that rejects with a curl-style message, e.g. "curl: (22) The requested URL returned error: 500 – ...". */
