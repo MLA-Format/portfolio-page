@@ -189,9 +189,9 @@ function Neofetch() {
     <Command cmd="neofetch">
       <div className="flex flex-wrap items-center gap-x-8 gap-y-4 py-2">
         {PROFILE.headshot ? (
-          <R2Image src={PROFILE.headshot} alt={PROFILE.name} className="size-28 shrink-0 rounded-full object-cover sm:size-32" />
+          <R2Image src={PROFILE.headshot} alt={PROFILE.name} className="size-42 shrink-0 rounded-full object-cover sm:size-48" />
         ) : (
-          <div aria-hidden className="grid size-28 shrink-0 place-items-center rounded-full bg-overlay text-4xl text-muted sm:size-32">
+          <div aria-hidden className="grid size-42 shrink-0 place-items-center rounded-full bg-overlay text-6xl text-muted sm:size-48">
             {PROFILE.name.charAt(0)}
           </div>
         )}
