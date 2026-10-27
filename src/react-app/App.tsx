@@ -392,7 +392,7 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen flex-col gap-5 px-4 py-4 sm:px-8 sm:py-6">
-      <h1 className="font-bold">Portfolio 1.0.2</h1>
+      <h1 className="font-bold">Portfolio 1.0.3</h1>
 
       <section>
         <p>

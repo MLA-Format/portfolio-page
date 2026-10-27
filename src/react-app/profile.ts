@@ -5,7 +5,7 @@ export const PROFILE = {
   location: 'Florida',
   about: `Hey there, I am Mason! I originally wanted to go into the culinary arts, but I found a love for coding in a game development class in high school.
 
-I am currently a Data Entry Specialist with 4 years of experience and a strong passion for automating and improving systems through code where possible. As a data entry specialist, I taught myself Python, SQL, and HTML to build tools to automate data workflows. One of my proudest accomplishments is writing a program to automate information retrieval for products and update data files and product listings.
+I am currently a Data Entry Specialist with 4 years of experience and a strong passion for automating and improving systems through code where possible. As a data entry specialist, I taught myself Python, SQL, and HTML to build tools to automate data workflows. One of my proudest accomplishments is writing a program to automate product information retrieval and updates.
 
 Outside of work, I am finishing my senior year at the University of Central Florida, where I have been deepening my programming knowledge through personal projects and coursework. I have completed classes such as Technical Writing, Computer Science I and II, Enterprise Computing, Programming Languages, Cloud Computing Management, and Operating Systems. I am also taking Senior Design and am working with a team on AchieveUp, a website that integrates with Canvas LMS to help teachers and students resolve student skill deficits. I am contributing as both a backend developer and a project manager on AchieveUp.
 
